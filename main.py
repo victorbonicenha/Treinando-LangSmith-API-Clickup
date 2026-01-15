@@ -2,6 +2,7 @@ import os
 from typing import TypedDict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
+import traceback
 import requests
 from dotenv import load_dotenv
 load_dotenv()
@@ -31,11 +32,15 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 # NÓS DO GRAFO
 # =========================
 def modelo_node(state: Estado) -> Estado:
-    resp = llm.invoke(state["entrada"])
-    return {
-        "entrada": state["entrada"],
-        "resposta": resp.content
-    }
+    # FORÇANDO ERRO PARA TESTE
+    raise Exception("Erro forçado no robô para teste de automação")
+
+    # Código normal ficaria assim:
+    # resp = llm.invoke(state["entrada"])
+    # return {
+    #     "entrada": state["entrada"],
+    #     "resposta": resp.content
+    # }
 
 # =========================
 # MONTAGEM DO GRAFO
@@ -79,36 +84,38 @@ def criar_task_clickup(titulo, descricao, status, assignees=None):
     return resp.json()
 
 if __name__ == "__main__":
-    resultado = app.invoke(
-        {"entrada": "Explique o que é um robô RPA em uma frase"},
-        config={
-            "run_name": "Robo_Ponto",
-            "tags": [
-                f"tenant:{TENANT}",
-                "robo:teste",
-                "env:dev"
-            ]
-        }
-    )
+    try:
+        resultado = app.invoke(
+            {"entrada": "Explique o que é um robô RPA em uma frase"},
+            config={
+                "run_name": "Robo_Ponto",
+                "tags": [
+                    f"tenant:{TENANT}",
+                    "robo:teste",
+                    "env:dev"
+                ]
+            }
+        )
 
-    print("Resposta final:")
-    print(resultado["resposta"])
+        print("Execução concluída com sucesso")
+        print("Resposta final:")
+        print(resultado["resposta"])
 
+    except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        ultima_linha = tb[-1]
 
-    # =========================
-    # CRIA TASK AUTOMÁTICA NO CLICKUP
-    # =========================
-
-criar_task_clickup(
-    titulo="Plataforma nova + integração do ClickUp via API",
-    descricao=(
-        "Task criada automaticamente via API ClickUp.\n\n"
-        "Instância do projeto: Paranoá\n"
-        "Origem: LangSmith + API ClickUp\n"
-        "Objetivo: Criar task automaticamente com base na orquestração da plataforma nova"
-    ),
-    status="Fazendo",
-    assignees=[USER_ID]
-)
-
-print("Tarefa criada automatica via API")
+        criar_task_clickup(
+            titulo="🚨 Erro no robô - Plataforma Nova",
+            descricao=(
+                "Erro detectado automaticamente durante a execução do robô.\n\n"
+                f"Tenant: {TENANT}\n"
+                f"Erro: {str(e)}\n"
+                f"Arquivo: {ultima_linha.filename}\n"
+                f"Linha: {ultima_linha.lineno}\n"
+                f"Função: {ultima_linha.name}\n\n"
+                "Origem: LangGraph + LangSmith"
+            ),
+            status="Fazendo",
+            assignees=[USER_ID]
+        )
